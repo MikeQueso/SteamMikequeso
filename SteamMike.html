@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SteamMike Ultimate - Auto Video & Sound</title>
+    <style>
+        :root {
+            --steam-blue: #66c0f4;
+            --steam-dark: #171d24;
+            --steam-bg: #1b2838;
+            --steam-text: #c7d5e0;
+            --steam-green: #bbee66;
+            --steam-purple: #a349a4;
+            --steam-red: #e64d4d;
+        }
+
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--steam-bg); color: var(--steam-text); margin: 0; overflow: hidden; }
+        header { background: var(--steam-dark); padding: 15px 5%; border-bottom: 3px solid var(--steam-blue); display: flex; justify-content: space-between; align-items: center; }
+        
+        .main-container { max-width: 1200px; margin: 20px auto; padding: 20px; height: 85vh; overflow-y: auto; }
+        .grid-juegos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+        
+        .card { background: #171d24; border: 1px solid #3d6a8d; border-radius: 4px; cursor: pointer; transition: 0.3s; }
+        .card:hover { border-color: var(--steam-blue); transform: scale(1.02); }
+        .card img { width: 100%; height: 120px; object-fit: cover; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; justify-content: center; align-items: center; }
+        .modal-content { background: #1b2838; padding: 25px; border-radius: 4px; border: 1px solid var(--steam-blue); width: 90%; max-width: 1100px; position: relative; }
+        
+        .gallery-layout { display: flex; gap: 20px; flex-wrap: wrap; }
+        .main-viewer { flex: 2; position: relative; background: #000; aspect-ratio: 16/9; border: 1px solid #333; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .main-viewer iframe, .main-viewer img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        
+        .side-buy-box { flex: 1; min-width: 280px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 4px; }
+        
+        .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 20px; cursor: pointer; font-size: 24px; z-index: 10; }
+        .nav-arrow:hover { background: var(--steam-blue); }
+        .arrow-left { left: 0; }
+        .arrow-right { right: 0; }
+        
+        .thumbnails { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; padding-bottom: 5px; }
+        .thumb { width: 100px; height: 56px; cursor: pointer; border: 2px solid transparent; opacity: 0.5; transition: 0.3s; background: #000; display: flex; align-items: center; justify-content: center; }
+        .thumb.active { border-color: var(--steam-blue); opacity: 1; }
+        .thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+        .sidebar { position: fixed; right: -400px; top: 0; width: 350px; height: 100%; background: var(--steam-dark); border-left: 2px solid var(--steam-blue); transition: 0.4s; z-index: 5000; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; }
+        .sidebar.active { right: 0; }
+
+        .btn { background: var(--steam-blue); color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .btn-buy { background: var(--steam-green); color: black; width: 100%; font-size: 1.2em; margin-top: 15px; }
+        
+        .chat-container { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-top: 25px; border: 1px solid #333; }
+        #chat-box { height: 120px; overflow-y: auto; background: #000; padding: 10px; border-radius: 4px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .msg { padding: 6px 12px; border-radius: 12px; font-size: 0.9em; max-width: 80%; }
+        .msg-u { align-self: flex-end; background: var(--steam-blue); }
+        .msg-b { align-self: flex-start; background: #444; }
+
+        #login-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--steam-bg); z-index: 20000; display: flex; justify-content: center; align-items: center; }
+        input { padding: 10px; background: #171d24; border: 1px solid #3d6a8d; color: white; border-radius: 4px; }
+    </style>
+</head>
+<body onload="init()">
+
+    <div id="login-screen">
+        <div style="text-align: center; background: var(--steam-dark); padding: 60px; border: 2px solid var(--steam-blue); border-radius: 8px;">
+            <h1 style="color:var(--steam-blue)">STEAMMIKE LOGIN</h1>
+            <input type="text" id="user-name" placeholder="Tu Apodo..." style="width: 250px;"><br><br>
+            <button class="btn" onclick="login()" style="width:275px">INICIAR SESIÓN</button>
+        </div>
+    </div>
+
+    <header>
+        <h1>SteamMike AI</h1>
+        <div style="display:flex; gap:10px;">
+            <button class="btn" style="background:var(--steam-purple)" onclick="openDeck3D()">🕹️ Steam Deck 3D</button>
+            <button class="btn" onclick="toggleSidebar('u')">👥 Comunidad</button>
+            <button class="btn" onclick="toggleSidebar('c')" id="cart-btn">🛒 Carrito (0)</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <h2 id="welcome"></h2>
+        <div class="grid-juegos" id="grid"></div>
+
+        <div class="chat-container">
+            <strong>MikeBot Asistente</strong>
+            <div id="chat-box"></div>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="chat-in" placeholder="Pregúntame algo..." style="flex:1;">
+                <button class="btn" onclick="handleChat()">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-modal" class="modal">
+        <div class="modal-content" id="modal-content"></div>
+    </div>
+
+    <div id="side-u" class="sidebar">
+        <h2>👥 Usuarios Locales</h2>
+        <div id="user-list" style="flex:1"></div>
+        <button class="btn" onclick="toggleSidebar('u')">Cerrar</button>
+    </div>
+
+    <div id="side-c" class="sidebar">
+        <h2>🛒 Tu Carrito</h2>
+        <div id="cart-list" style="flex:1; overflow-y:auto;"></div>
+        <h3 id="total-price">Total: $0</h3>
+        <button class="btn btn-buy" onclick="processOrder()">PAGAR COMPRA</button>
+        <button class="btn" style="background:#333; margin-top:5px;" onclick="toggleSidebar('c')">Volver</button>
+    </div>
+
+    <script>
+        const juegos = [
+            { 
+                id: 0, n: "Borderlands 3", p: 30, s: 15, v: "DU6wWn-oVpU", 
+                img: "https://assets.2k.com/1a6ngf98576c/6qBvbeaiIPxSJ4XyF8KpT4/bb3832c669f7ef6067c6454d41c7e62a/Warchest_KeyArt_1920x1080.jpg",
+                caps: [
+                    "https://assets.2k.com/1a6ngf98576c/4DBYo7qF8S9jYQwjc1bIoU/869d4c92d06a052cbcdc17432bef2842/BL3_4_ENEMIES-th.jpg", 
+                    "https://gocdkeys.es/images/captures/borderlands-3-ps5-2.jpg", 
+                    "https://i0.wp.com/thekoalition.com/images/2020/11/borderlands-3-review.jpg?resize=1400%2C788&ssl=1"
+                ] 
+            },
+            { 
+                id: 1, n: "R.E.P.O.", p: 20, s: 8, v: "ZkN0LdB4iAQ", 
+                img: "https://i.pinimg.com/236x/41/fc/cb/41fccbc3e859a266af8dccffa1c52117.jpg", 
+                caps: [
+                    "https://www.semana.com/resizer/v2/CUQHZSEQORFPNKED6SVDZOHTZI.jpg?auth=a1229ab82c1085cd0d34e83a5b084b99b5414c401c36d016bd322519fa14d213&smart=true&quality=75&width=1280",
+                    "https://prod.assets.earlygamecdn.com/images/Repo-Robe-full-body.jpg?transform=Article+Webp",
+                    "https://cdn.mos.cms.futurecdn.net/Bn6Jz9YTFQDHNwA8bd956H.jpg"
+                ] 
+            },
+            { 
+                id: 2, n: "Terraria", p: 10, s: 50, v: "J-ykK1ACzBI", 
+                img: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/105600/header.jpg", 
+                caps: [
+                    "https://alfabetajuega.com/hero/2021/12/Como-invocar-a-la-Reina-Slime-y-al-Ojo-de-Cthulhu-en-Terraria.jpg?width=768&aspect_ratio=16:9&format=nowebp",
+                    "https://cdn.alfabetajuega.com/alfabetajuega/2022/03/image-3.1648006472.384.jpg",
+                    "https://i.pinimg.com/474x/aa/dd/c3/aaddc364799c788f85f2948870665a9a.jpg"
+                ] 
+            },
+            { 
+                id: 3, n: "Minecraft Dungeons", p: 25, s: 12, v: "eoRd6rT63uA", 
+                img: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1672970/header.jpg", 
+                caps: [
+                    "https://cdn2.gameplanet.com/wp-content/uploads/2022/09/04124536/71v7xctrvrl._ac_sl1500_.jpg",
+                    "https://consolaytablero.com/wp-content/uploads/2018/10/Minecraft-Dungeons.jpg",
+                    "https://pressover.news/wp-content/uploads/2020/06/minecraft-dungeons-review-personaje.jpg"
+                ] 
+            },
+            { 
+                id: 4, n: "Halo Infinite", p: 60, s: 5, v: "EqG1tCWbZNQ", 
+                img: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1240440/header.jpg", 
+                caps: [
+                    "https://i.blogs.es/f94adf/analisis-halo-infinite-2/650_1200.jpeg",
+                    "https://msftstories.thesourcemediaassets.com/sites/61/2023/06/Halo-Infinite-Infeccion.jpg",
+                    "https://assetsio.gnwcdn.com/haloinfinitecortana.png?width=690&quality=85&format=jpg&dpr=3&auto=webp"
+                ] 
+            }
+        ];
+
+        let miNombre = "";
+        let carrito = [];
+        let curMedia = 0; 
+
+        function init() { renderGrid(); updateUsersUI(); }
+
+        function login() {
+            const val = document.getElementById('user-name').value.trim();
+            if(!val) return;
+            miNombre = val;
+            let users = JSON.parse(localStorage.getItem('steamUsers')) || [];
+            if(!users.includes(val)) users.push(val);
+            localStorage.setItem('steamUsers', JSON.stringify(users));
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('welcome').innerText = "Bienvenido, " + miNombre;
+            updateUsersUI();
+        }
+
+        function updateUsersUI() {
+            const list = JSON.parse(localStorage.getItem('steamUsers')) || [];
+            document.getElementById('user-list').innerHTML = list.map(u => `<p>● ${u}</p>`).join('');
+        }
+
+        function renderGrid() {
+            document.getElementById('grid').innerHTML = juegos.map(j => `
+                <div class="card" onclick="openGame(${j.id})">
+                    <img src="${j.img}">
+                    <div style="padding:10px; text-align:center"><strong>${j.n}</strong><br><span style="color:var(--steam-green)">$${j.p}</span></div>
+                </div>`).join('');
+        }
+
+        function openGame(id) {
+            curMedia = 0;
+            drawModal(id);
+            document.getElementById('game-modal').style.display = 'flex';
+        }
+
+        function drawModal(gameId) {
+            const j = juegos[gameId];
+            const content = document.getElementById('modal-content');
+            
+            let displayHTML = "";
+            if (curMedia === 0) {
+                // IMPLEMENTACIÓN: Autoplay=1 y Mute=0 (Con sonido al máximo)
+                displayHTML = `<iframe src="https://www.youtube.com/embed/${j.v}?autoplay=1&mute=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            } else {
+                const foto = j.caps[curMedia - 1];
+                displayHTML = `<img src="${foto}">`;
+            }
+
+            content.innerHTML = `
+                <button class="btn" style="position:absolute; right:15px; top:15px; background:var(--steam-red); z-index:100" onclick="closeModal()">X</button>
+                <div class="gallery-layout">
+                    <div class="main-viewer" id="main-viewer">
+                        <button class="nav-arrow arrow-left" onclick="moveGallery(${gameId}, -1)">❮</button>
+                        ${displayHTML}
+                        <button class="nav-arrow arrow-right" onclick="moveGallery(${gameId}, 1)">❯</button>
+                    </div>
+                    <div class="side-buy-box">
+                        <img src="${j.img}" style="width:100%; border-radius:4px; margin-bottom:10px;">
+                        <h2>${j.n}</h2>
+                        <p style="color:var(--steam-green); font-size:1.6em;">$${j.p}.00</p>
+                        <p>Stock: <strong>${j.s} piezas</strong></p>
+                        <hr border="0.1" color="#333">
+                        <label>Piezas:</label><br>
+                        <input type="number" id="qty" value="1" min="1" max="${j.s}" style="width:90%; margin:10px 0;">
+                        <button class="btn btn-buy" onclick="addToCart(${gameId})">AÑADIR AL CARRITO</button>
+                    </div>
+                </div>
+                <div class="thumbnails">
+                    <div class="thumb ${curMedia===0?'active':''}" onclick="setMedia(${gameId}, 0)">
+                        <img src="https://img.youtube.com/vi/${j.v}/0.jpg">
+                    </div>
+                    <div class="thumb ${curMedia===1?'active':''}" onclick="setMedia(${gameId}, 1)"><img src="${j.caps[0]}"></div>
+                    <div class="thumb ${curMedia===2?'active':''}" onclick="setMedia(${gameId}, 2)"><img src="${j.caps[1]}"></div>
+                    <div class="thumb ${curMedia===3?'active':''}" onclick="setMedia(${gameId}, 3)"><img src="${j.caps[2]}"></div>
+                </div>
+            `;
+        }
+
+        function moveGallery(id, dir) { 
+            curMedia = (curMedia + dir + 4) % 4; 
+            drawModal(id); 
+        }
+
+        function setMedia(id, m) { 
+            curMedia = m; 
+            drawModal(id); 
+        }
+
+        function addToCart(id) {
+            const q = parseInt(document.getElementById('qty').value);
+            const item = juegos[id];
+            const found = carrito.find(x => x.id === id);
+            if(found) found.q += q;
+            else carrito.push({ ...item, q: q });
+            updateCartUI();
+            closeModal();
+            botReply("Añadido " + q + " unidad(es) de " + item.n);
+        }
+
+        function updateCartUI() {
+            let total = 0, count = 0;
+            document.getElementById('cart-list').innerHTML = carrito.map(i => {
+                total += (i.p * i.q); count += i.q;
+                return `<div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #333">
+                    <span>${i.n} (x${i.q})</span><span>$${i.p * i.q}</span>
+                </div>`;
+            }).join('');
+            document.getElementById('total-price').innerText = "Total: $" + total;
+            document.getElementById('cart-btn').innerText = `🛒 Carrito (${count})`;
+        }
+
+        function processOrder() {
+            if(!carrito.length) return alert("Carrito vacío");
+            alert("Compra exitosa.");
+            carrito = []; updateCartUI(); toggleSidebar('c');
+        }
+
+        function handleChat() {
+            const inp = document.getElementById('chat-in');
+            const t = inp.value.toLowerCase(); if(!t) return;
+            addMsg(inp.value, 'u'); inp.value = "";
+            setTimeout(() => {
+                let r = "MikeBot: Consulta tu total o usuarios registrados.";
+                if(t.includes("total")) r = "Total: $" + carrito.reduce((a,b)=>a+(b.p*b.q),0);
+                else if(t.includes("usuarios")) r = "Usuarios: " + (JSON.parse(localStorage.getItem('steamUsers'))||[]).join(", ");
+                botReply(r);
+            }, 400);
+        }
+
+        function addMsg(t, c) {
+            const b = document.getElementById('chat-box');
+            b.innerHTML += `<div class="msg msg-${c}">${t}</div>`;
+            b.scrollTop = b.scrollHeight;
+        }
+        function botReply(t) { addMsg(t, 'b'); }
+        function closeModal() { document.getElementById('game-modal').style.display = 'none'; }
+        function toggleSidebar(s) { document.getElementById('side-'+s).classList.toggle('active'); }
+        
+        function openDeck3D() {
+            const modal = document.getElementById('game-modal');
+            document.getElementById('modal-content').innerHTML = `
+                <button class="btn" style="position:absolute; right:15px; top:15px; background:var(--steam-red); z-index:100" onclick="closeModal()">X</button>
+                <iframe src="https://sketchfab.com/models/46e0c05675a7442dbe73f261436e6819/embed" frameborder="0" allowfullscreen style="width:100%; height:500px;"></iframe>`;
+            modal.style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
